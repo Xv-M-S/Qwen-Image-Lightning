@@ -64,3 +64,8 @@ python generate_with_diffusers.py \
 --lora_path Qwen-Image-Lightning/Qwen-Image-Lightning-8steps-V1.0.safetensors \
 --base_seed 42 --steps 8 --cfg 1.0
 ```
+
+## Run box loss generation
+``` bash
+python boxLossControlStart.py
+```
