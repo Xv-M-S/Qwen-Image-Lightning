@@ -1,0 +1,39 @@
+CONFIG_NAME: 'glu-gan2'
+
+DATASET_NAME: 'coco'
+DATA_DIR: 'data'
+WORKERS: 8
+DEBUG: False
+
+TREE:
+    BRANCH_NUM: 3
+
+TRAIN:
+    FLAG: True
+    NET_G: "" #
+    B_NET_D: True
+    BATCH_SIZE: [32, 28, 24, 24, 20, 16, 16, 16, 12, 12, 12] # batch sizes for the different batches containing [0, 1, ...] objects per image; [24] if OPTIMIZE_DATA_LOADING is False
+    MAX_EPOCH: 120
+    DISCRIMINATOR_LR: 0.0002
+    GENERATOR_LR: 0.0002
+    NET_E: 'models/coco/text_encoder100.pth'
+    BBOX_LOSS: True
+    OPTIMIZE_DATA_LOADING: True
+    EMPTY_CACHE: True
+    SMOOTH:
+        GAMMA1: 4.0  # 1,2,5 good 4 best  10&100bad
+        GAMMA2: 5.0
+        GAMMA3: 10.0  # 10good 1&100bad
+        LAMBDA: 50.0
+
+GAN:
+    DISC_FEAT_DIM: 96
+    GEN_FEAT_DIM: 48
+    GLOBAL_Z_DIM: 100
+    TEXT_CONDITION_DIM: 100
+    RESIDUAL_NUM: 3
+
+TEXT:
+    EMBEDDING_DIM: 256
+    CAPTIONS_PER_IMAGE: 5
+    WORDS_NUM: 12

@@ -1,0 +1,37 @@
+# Example gitignore file for a Python project
+*.png
+
+
+# compilation and distribution
+__pycache__
+_ext
+*.pyc
+*.pyd
+*.so
+*.dll
+*.egg-info/
+build/
+dist/
+wheels/
+
+# pytorch/python/numpy formats
+*.pth
+*.pkl
+*.npy
+*.ts
+model_ts*.txt
+
+# ipython/jupyter notebooks
+# *.ipynb
+**/.ipynb_checkpoints/
+
+# Editor temporaries
+*.swn
+*.swo
+*.swp
+
+# Floder
+/DataSets/XU_Bench/CLIP_Score_Bench/format_data
+/DataSets/XU_Bench/FID_Score_Bench/cocoapi/coco_dataset
+/DataSets/XU_Bench/FID_Score_Bench/real_images
+/DataSets/HRS_Bench_Prompts/embs
