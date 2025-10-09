@@ -141,6 +141,19 @@ def render_text_in_box_with_visualization(image_width, image_height, text, box, 
     在指定的 box 内自适应字体大小并渲染多行文本，支持横向和竖向，文本块居中对齐。
     返回每个字符的边界框列表和渲染后的图像。
     """
+    # 校验box是否合法,尝试修正box
+    x0, y0, x1, y1 = box
+    # 检查并修正
+    if x0 > x1:
+        x0, x1 = x1, x0
+        print("Warning: x0 > x1, swapped.")
+    if y0 > y1:
+        y0, y1 = y1, y0
+        print("Warning: y0 > y1, swapped.")
+    
+    # 确保修正后的 box
+    box = (x0, y0, x1, y1)
+
     if not text.strip():
         img = Image.new('RGB', (image_width, image_height), color='white')
         draw = ImageDraw.Draw(img)

@@ -21,6 +21,8 @@ pip install scikit-learn
 pip install pyinstrument
 
 pip install accelerate
+pip install nltk
+# 手动下载punkt包 https://blog.csdn.net/qq_29831163/article/details/105145341?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.control&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromBaidu-1.control
 ```
 
 # download model
@@ -29,6 +31,9 @@ pip install accelerate
 pip install peft
 pip install "huggingface_hub[cli]"
 huggingface-cli download lightx2v/Qwen-Image-Lightning --local-dir ./Qwen-Image-Lightning
+# for v2 model
+# there sometimes error for network problem, just try again
+huggingface-cli download lightx2v/Qwen-Image-Lightning --local-dir ./Qwen-Image-Lightning_v2
 ```
 
 # run and test
@@ -69,3 +74,40 @@ python generate_with_diffusers.py \
 ``` bash
 python boxLossControlStart.py
 ```
+
+# batch run
+run the spatial result:
+``` bash
+python batchRun.py --data_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/spatial.p --save_path /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/spatialResGI
+export CUDA_VISIBLE_DEVICES=1
+nohup python batchRun.py --data_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/spatial.p --save_path /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/spatialResGI > spatial_run.log 2>&1 &
+```
+
+run the size result:
+``` bash
+export CUDA_VISIBLE_DEVICES=1
+python batchRun.py --data_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/size.p --save_path /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/sizeResGI
+nohup python batchRun.py --data_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/size.p --save_path /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/sizeResGI > size_run.log 2>&1 &
+```
+
+run the color result:
+``` bash
+export CUDA_VISIBLE_DEVICES=2
+python batchRun.py --data_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/color.p --save_path /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/colorResGI
+```
+
+run the counting result:
+``` bash
+export CUDA_VISIBLE_DEVICES=3
+python batchRun.py --data_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/counting.p --save_path /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/countingResGI
+```
+
+# eval : FID score
+reference: https://xuexutao.github.io/2025/07/01/2025/2507/FID/ [Inception-v3的预训练模型已经集成到torch当中]
+
+# eval : CLIP score
+reference: https://github.com/Taited/clip-score
+zhihu : https://zhuanlan.zhihu.com/p/645816974
+
+# eval : SOA score
+reference: https://github.com/tohinz/semantic-object-accuracy-for-generative-text-to-image-synthesis

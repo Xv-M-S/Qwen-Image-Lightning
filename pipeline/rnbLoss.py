@@ -154,6 +154,8 @@ def _compute_rnb_loss_whole(
     loss_list = []
     # 3.逐个box计算损失函数
     for cnt, indices in enumerate(positions_list):
+        if len(indices) == 0:
+            continue
         single_obj_loss = 0
 
         attn_list = []
@@ -177,9 +179,23 @@ def _compute_rnb_loss_whole(
         # 3.2 计算box
         box = [max(round(b/scale_factor), 0) for b in bbox[cnt]]
         x1, y1, x2, y2 = box
+        
+
 
         # 3.3 coordinates to masks
         obj_mask = torch.zeros_like(attn_norm)
+
+        # 验证边界条件：确保 y1, y2, x1, x2 都在有效范围内。对于 obj_mask，你需要知道它的高度和宽度，并保证 y2 和 x2 不超过这些限制。
+        height, width = obj_mask.shape # 假设 obj_mask 是二维的
+        # 1. 修正坐标：确保所有坐标在有效范围内（非负且不超过边界）
+        y1 = max(0, y1)  # 左边界不小于0
+        x1 = max(0, x1)  # 下边界不小于0
+        y2 = min(y2, height)
+        x2 = min(x2, width)
+
+        if y2 <= y1 or x2 <= x1:
+            continue  # 如果修正后无效，跳过该框
+
         ones_mask = torch.ones([y2 - y1, x2 - x1], dtype=obj_mask.dtype).to(obj_mask.device)
         obj_mask[y1:y2, x1:x2] = ones_mask
         bg_mask = 1 - obj_mask
@@ -198,6 +214,8 @@ def _compute_rnb_loss_whole(
         # 3.5 提取预测的MBR（最小外接矩形）--> 提取的最小外接矩形存在为空的情况？也就是说可能存在没有值大于0.3的情况。
         # 这个0.3是怎么定的，此处需要更改？[此处需要DEBUG,待解决] -> 本质是梯度消失了？
         rows, cols = torch.where(thres_image > 0.3)
+        if cols.numel() == 0 or rows.numel() == 0:
+            continue
         x1, y1 = cols.min(), rows.min()
         x2, y2 = cols.max(), rows.max()
 
@@ -225,19 +243,22 @@ def _compute_rnb_loss_whole(
         loss_list.append(single_obj_loss)
 
     object_number = len(positions_list)
+    if object_number == 0:
+        return 0, []
     loss = obj_loss / object_number
 
     print(f"loss:{loss}  loss_list:{loss_list}")
 
-    name_list = config.text_index.keys()
-    loss_dict = {name: loss_list[i] for i, name in enumerate(name_list)}
+    if config.enable_reweight:
+        name_list = config.text_index.keys()
+        loss_dict = {name: loss_list[i] for i, name in enumerate(name_list)}
 
-    if loss_util.is_initialized():
-        loss = loss_util.compute_weighted_loss(loss_dict)
-    else:
-        loss_util.record_initial_losses(loss_dict)
-    
-    print(f"after reweight loss:{loss}")
+        if loss_util.is_initialized():
+            loss = loss_util.compute_weighted_loss(loss_dict)
+        else:
+            loss_util.record_initial_losses(loss_dict)
+        
+        print(f"after reweight loss:{loss}")
 
     return loss, loss_list
 
@@ -381,7 +402,7 @@ def compute_rnb_loss(
     child_bbox:List[List[List[int]]],
     loss_util: LossUtil,
 ):
-    if child_bbox is None:
+    if child_bbox is None or config.use_character_box_loss is False:
         return _compute_rnb_loss_whole(
             attention_store=attention_store,
             indices_to_alter=indices_to_alter,

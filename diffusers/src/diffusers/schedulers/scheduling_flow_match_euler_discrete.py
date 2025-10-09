@@ -146,6 +146,10 @@ class FlowMatchEulerDiscreteScheduler(SchedulerMixin, ConfigMixin):
         The index counter for current timestep. It will increase 1 after each scheduler step.
         """
         return self._step_index
+    
+    # add to reset step_index
+    def set_step_index(self, value):
+        self._step_index = value
 
     @property
     def begin_index(self):

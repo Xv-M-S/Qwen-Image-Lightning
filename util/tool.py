@@ -53,7 +53,7 @@ def get_child_boxes(box_text_pairs, image_width, image_height):
             font_path=font_path
         )
         # char_boxes_v = filter_valid_boxes(char_boxes_v)
-        img_v.save(f"{k}.png")
+        img_v.save(f"./runing_output_tempfile/{k}.png")
     
         result_sk_pairs = merge_english_word_boxes(description, char_boxes_v)
         child_box_list = []
@@ -153,11 +153,14 @@ def draw_masks_on_image(image_path, regional_prompt_mask_pairs, output_path='out
         x1, y1, x2, y2 = mask
         text_position = (x1, y1 - 20) if y1 >= 20 else (x1, y2 + 5)  # 文本位置调整以避免超出图片边界
 
-        # 绘制矩形框
-        draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=3)
+        try:
+            # 绘制矩形框
+            draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=3)
 
-        # 在矩形框附近添加描述文本
-        draw.text(text_position, description, fill="blue", font=font)
+            # 在矩形框附近添加描述文本
+            draw.text(text_position, description, fill="blue", font=font)
+        except Exception as e:
+            print(f"绘制矩形框或文本时出错: {e}")
 
     # 保存结果
     image.save(output_path)

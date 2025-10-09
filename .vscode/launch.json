@@ -1,0 +1,173 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Qwen-Image调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/boxLossControlStart.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            // 允许调试第三方库
+            "justMyCode": false
+        },
+        {
+            "name": "batch-Run调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/batchRun.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            // 命令行参数配置
+            "args": [
+                "--data_dir",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/LLM_Bench/counting.p",
+                "--save_path",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/countingResGI"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3"  // 指定使用第4块GPU（索引从0开始）
+            },
+            // 允许调试第三方库
+            "justMyCode": false
+        },
+        {
+            "name": "cac-counting-acc调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/counting/calc_counting_acc.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/counting",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            "args": [
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/pklDir/countingRes.pkl",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/HRS/counting_prompts.csv",
+                "1"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "detect调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/demo.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master",
+            "python": "/home/sxm/anaconda3/envs/xu_bench/bin/python3",
+            "args": [
+                "--config-file",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/configs/Partitioned_COI_RS101_2x.yaml",
+                "--input",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/spatialResGIName/*",
+                "--pkl_pth",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/pklDir/spatialRes.pkl",
+                "--output",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/DetectRes/spatialRes",
+                "--opts",
+                "MODEL.WEIGHTS",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/weight/Partitioned_COI_RS101_2x.pth"
+            ],
+            "env": {
+                "PYTORCH_CUDA_ALLOC_CONF": null  // 关键：取消该环境变量，等效于unset
+            },
+            "justMyCode": false
+        },        
+        {
+            "name": "cac-spatial-acc调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/compositions/calc_spatial_relation_acc.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/compositions",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            "args": [
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/pklDir/spatialRes.pkl",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/HRS/spatial_compositions_prompts.csv",
+                "1"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "cac-size-acc调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/compositions/calc_size_comp_acc.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/compositions",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            "args": [
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/pklDir/sizeRes.pkl",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/HRS/size_compositions_prompts.csv",
+                "1"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "MaskDINO demo调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/MaskDINO/demo/demo.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/MaskDINO/demo",
+            "python": "/home/sxm/anaconda3/envs/xu_bench/bin/python3",
+            "args": [
+                "--config-file",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/MaskDINO/configs/coco/instance-segmentation/swin/maskdino_R50_bs16_50ep_4s_dowsample1_2048_no_maskEnhance.yaml",
+                "--input",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/colorResGIName/*",
+                "--output",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/MaskDINO/outputData/colorRes",
+                "--opts",
+                "MODEL.WEIGHTS",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/MaskDINO/model/maskdino_swinl_50ep_300q_hid2048_3sd1_panoptic_58.3pq.pth"
+            ],
+            "env": {
+                "PYTORCH_CUDA_ALLOC_CONF": null  // 关键：取消该环境变量，等效于unset
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "hue_based_color_classifier调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/hue_based_color_classifier.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors",
+            "python": "/home/sxm/anaconda3/envs/xu_bench/bin/python3",
+            "args": [
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/colors/MaskDINO/outputData/colorRes",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/HRS/colors_composition_prompts.csv",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/colorResGIName"
+            ],
+            "env": {
+                "PYTORCH_CUDA_ALLOC_CONF": null  // 关键：取消该环境变量，等效于unset
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "calc_counting_acc调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/counting/calc_counting_acc.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/counting",
+            "python": "/home/sxm/anaconda3/envs/xu_bench/bin/python3",
+            "args": [
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/eval_metrics/detection/UniDet-master/pklDir/countingResName.pkl",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/data_evaluate_LLM/HRS/counting_prompts.csv",
+                "1"
+            ],
+            "env": {
+                "PYTORCH_CUDA_ALLOC_CONF": null
+            },
+            "justMyCode": false
+        }
+
+
+    ]
+
+    
+}
+        

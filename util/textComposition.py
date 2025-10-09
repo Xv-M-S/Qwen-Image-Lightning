@@ -80,34 +80,40 @@ def visualize_structured_boxes_with_text(image_width, image_height, structured_d
         description = item.get('description', f'Item {key}')
         # 简化描述，只取引号内的内容或前几个词
         if description.startswith('"') and description.endswith('"'):
-             simple_desc = description[1:-1] # 去掉首尾引号
+            simple_desc = description[1:-1] # 去掉首尾引号
         else:
              # 如果没有引号，取前N个字符作为标签
-             simple_desc = description[:20] + "..." if len(description) > 20 else description
+            simple_desc = description[:20] + "..." if len(description) > 20 else description
 
         mask = item.get('mask')
         child_boxes = item.get('child_boxes')
 
         # 绘制主 mask 框和文字
         if mask and len(mask) == 4:
-            x1, y1, x2, y2 = mask
-            draw.rectangle([x1, y1, x2, y2], outline=mask_color, width=mask_width)
-            # 在左上角绘制文字
-            text_position = (x1, y1 - 15) # 稍微向上偏移一点
-            # 为了文字更清晰，可以添加背景或描边，这里简单绘制
-            draw.text(text_position, simple_desc, fill=text_color, font=font)
+            try:
+                x1, y1, x2, y2 = mask
+                draw.rectangle([x1, y1, x2, y2], outline=mask_color, width=mask_width)
+                # 在左上角绘制文字
+                text_position = (x1, y1 - 15) # 稍微向上偏移一点
+                # 为了文字更清晰，可以添加背景或描边，这里简单绘制
+                draw.text(text_position, simple_desc, fill=text_color, font=font)
+            except Exception as e:
+                print(f"绘制项目 {key} 的 mask 时出错: {e}")
         else:
-             print(f"警告：项目 {key} 的 mask 无效或缺失，跳过。")
+            print(f"警告：项目 {key} 的 mask 无效或缺失，跳过。")
 
         # 绘制 child_boxes 和索引文字
         if child_boxes:
             for i, box in enumerate(child_boxes):
                 if box and len(box) == 4:
-                    x1, y1, x2, y2 = box
-                    draw.rectangle([x1, y1, x2, y2], outline=child_box_color, width=child_box_width)
-                    # 在左上角绘制子框索引
-                    text_position = (x1, y1)
-                    draw.text(text_position, str(i), fill=text_color, font=font)
+                    try:
+                        x1, y1, x2, y2 = box
+                        draw.rectangle([x1, y1, x2, y2], outline=child_box_color, width=child_box_width)
+                        # 在左上角绘制子框索引
+                        text_position = (x1, y1)
+                        draw.text(text_position, str(i), fill=text_color, font=font)
+                    except Exception as e:
+                        print(f"绘制项目 {key} 的 child_boxes[{i}] 时出错: {e}")
                 else:
                     print(f"警告：项目 {key} 的 child_boxes[{i}] 无效，跳过。")
         else:
