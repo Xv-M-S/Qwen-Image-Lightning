@@ -92,7 +92,7 @@ def get_hw():
         "2:3": (1056, 1584),
     }
 
-    width, height = aspect_ratios["16:9"]
+    width, height = 512, 512
 
     boxConfig.H = height
     boxConfig.W = width
@@ -101,9 +101,12 @@ def get_hw():
 
 def prepare_regional_control(height, width):
     ## regional prompt and mask settings
-    from testCase import regional_prompt_mask_pairs2 as regional_prompt_mask_pairs
+    from testCase import regional_prompt_mask_pairs_sample as regional_prompt_mask_pairs
     from util.tool import get_child_boxes
     from util.textComposition import visualize_structured_boxes_with_text
+
+    base_prompt = regional_prompt_mask_pairs['prompt']
+    del regional_prompt_mask_pairs['prompt']
 
     regional_prompt_mask_pairs = get_child_boxes(regional_prompt_mask_pairs, width, height)
     print(regional_prompt_mask_pairs)
@@ -115,7 +118,6 @@ def prepare_regional_control(height, width):
     regional_child_boxes = []
 
     background_prompt = "a photo" # set by default, but if you want to enrich background, you can set it to a more descriptive prompt
-    background_prompt = '''A coffee shop entrance, '''
 
     background_mask = torch.ones((height, width))
     for region_idx, region in regional_prompt_mask_pairs.items():
@@ -136,18 +138,11 @@ def prepare_regional_control(height, width):
     if background_mask.sum() > 0:
         regional_prompts.append(background_prompt)
         regional_masks.append(background_mask)
+    
 
-    return regional_prompts, regional_masks, regional_boxes, whole_regional_mask, regional_prompt_mask_pairs, regional_child_boxes
+    return base_prompt,regional_prompts, regional_masks, regional_boxes, whole_regional_mask, regional_prompt_mask_pairs, regional_child_boxes
 
 def prepare_base_control():
-    # base prompt settings
-    base_prompt = '''A coffee shop entrance features a chalkboard sign reading "Qwen Coffee 😊 $2 per cup", and a neon light  displaying "通义千问". Next to it hangs a poster showing a beautiful Chinese woman, and beneath the poster is written "π≈3.1415926-53589793-23846264-33832795-02384197".  '''
-    base_prompt = '''A coffee shop entrance features a chalkboard sign reading "Qwen Coffee 😊 $2 per cup" , and a neon light  displaying "通义千问" . A poster showing a beautiful Chinese woman , and "π≈3.1415926-53589793-23846264-33832795-02384197" is written on the wall .'''
-    base_prompt = '''A coffee shop entrance features a chalkboard sign reading "Qwen Coffee 😊 $2 per cup" , and a neon light  displaying "通义千问" . A poster showing a beautiful Chinese woman. the text "庐山云雾" is written on the wall .'''
-    base_prompt = '''A coffee shop entrance features a chalkboard sign reading "Qwen Coffee 😊 $2 per cup" , and a neon light  displaying "通义千问" . the text "庐山云雾" is written on the wall .'''
-    base_prompt = '''the text "庐山云雾" is written on the wall .'''
-    base_prompt = '''A coffee shop entrance features a chalkboard sign reading "咖啡店" , and a neon light  displaying "通义千问" . the text "π≈3.1415926" is written on the wall .'''
-    # base_prompt = '''A coffee shop entrance, '''
 
     negative_prompt = " " # Recommended if you don't use a negative prompt.
 
@@ -156,21 +151,21 @@ def prepare_base_control():
         "zh": "超清，4K，电影级构图" # for chinese prompt
     }
 
-    return base_prompt, negative_prompt, positive_magic
+    return negative_prompt, positive_magic
 
 def run():
     ## region control factor settings [超参数]
     mask_inject_steps = 0 # larger means stronger control, recommended between 5-10
     double_inject_blocks_interval = 1 # 1 means strongest control
-    # single_inject_blocks_interval = 1 # 1 means strongest control
-    base_ratio = 0.1 # smaller means stronger control
+    single_inject_blocks_interval = 1 # 1 means strongest control
+    base_ratio = 0.4 # smaller means stronger control
     save_path = "./runing_output_tempfile"
 
 
     pipe, controller = load_model()
     height,width = get_hw()
-    base_prompt, negative_prompt, positive_magic = prepare_base_control()
-    regional_prompts, regional_masks, regional_boxes, whole_regional_mask, regional_prompt_mask_pairs, regional_child_boxes = prepare_regional_control(height, width)
+    negative_prompt, positive_magic = prepare_base_control()
+    base_prompt, regional_prompts, regional_masks, regional_boxes, whole_regional_mask, regional_prompt_mask_pairs, regional_child_boxes = prepare_regional_control(height, width)
 
     ## visual layout
     visualize_mask_pairs(regional_prompt_mask_pairs, width, height, os.path.join(save_path, "visual_layout.png"))
@@ -184,7 +179,8 @@ def run():
             print(f"latents choose iter, random seed: {random_seed}, min loss: {min_loss}")
             # infer_loss = pipe.latents_choose(
             infer_loss = pipe.multi_step_loss(
-                base_prompt=base_prompt + positive_magic["en"],
+                # base_prompt=base_prompt + positive_magic["en"],
+                base_prompt=base_prompt,
                 attention_store=controller, # added for attention store
                 negative_prompt=negative_prompt,
                 width=width,
@@ -199,7 +195,7 @@ def run():
                     "regional_boxes": regional_boxes,
                     "regional_child_boxes": regional_child_boxes,
                     "double_inject_blocks_interval": double_inject_blocks_interval,
-                    # "single_inject_blocks_interval": single_inject_blocks_interval,
+                    "single_inject_blocks_interval": single_inject_blocks_interval,
                     "base_ratio": base_ratio,
                     "whole_regional_mask": whole_regional_mask,  # 是否在相乘的时候只在mask上进行
                     "enable_whole_regional_mask": False
@@ -215,37 +211,43 @@ def run():
                 seed = random_seed
                 min_loss = infer_loss
     print(f"latents choose iter, final seed: {random_seed}, min loss: {min_loss}")
-    image = pipe(
-    # image = pipe.mutil_step_call(
-        base_prompt=base_prompt + positive_magic["en"],
-        attention_store=controller, # added for attention store
-        negative_prompt=negative_prompt,
-        width=width,
-        height=height,
-        num_inference_steps=4,
-        true_cfg_scale=1.0, # do not use CFG
-        generator=torch.Generator(device="cuda").manual_seed(seed),
-        mask_inject_steps=mask_inject_steps, # inject mask
-        attention_kwargs={
-            "regional_prompts": regional_prompts,
-            "regional_masks": regional_masks,
-            "regional_boxes": regional_boxes,
-            "regional_child_boxes": regional_child_boxes,
-            "double_inject_blocks_interval": double_inject_blocks_interval,
-            # "single_inject_blocks_interval": single_inject_blocks_interval,
-            "base_ratio": base_ratio,
-            "whole_regional_mask": whole_regional_mask,  # 是否在相乘的时候只在mask上进行
-            "enable_whole_regional_mask": False
-        },
-        gaussian_smoothing_kwargs={
-            "sigma": 0.5,
-            "kernel_size": 3,
-            "smooth_attentions": True
-        }
-    ).images[0]
+    
+    # seed_list = [68,144,256,512,1024,243498,675849,987654,123456,555555]
+    seed_list = [68]
 
-    image_path = os.path.join(save_path, "example.png")
-    image.save(image_path)
+    for index, seed in enumerate(seed_list):
+        image = pipe(
+        # image = pipe.mutil_step_call(
+            # base_prompt=base_prompt + positive_magic["en"],
+            base_prompt=base_prompt,
+            attention_store=controller, # added for attention store
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            num_inference_steps=4,
+            true_cfg_scale=1.0, # do not use CFG
+            generator=torch.Generator(device="cuda").manual_seed(seed),
+            mask_inject_steps=mask_inject_steps, # inject mask
+            attention_kwargs={
+                "regional_prompts": regional_prompts,
+                "regional_masks": regional_masks,
+                "regional_boxes": regional_boxes,
+                "regional_child_boxes": regional_child_boxes,
+                "double_inject_blocks_interval": double_inject_blocks_interval,
+                # "single_inject_blocks_interval": single_inject_blocks_interval,
+                "base_ratio": base_ratio,
+                "whole_regional_mask": whole_regional_mask,  # 是否在相乘的时候只在mask上进行
+                "enable_whole_regional_mask": False
+            },
+            gaussian_smoothing_kwargs={
+                "sigma": 0.5,
+                "kernel_size": 3,
+                "smooth_attentions": True
+            }
+        ).images[0]
+
+        image_path = os.path.join(save_path, f"example_{index}.png")
+        image.save(image_path)
 
     # visual layout on image
     draw_masks_on_image(image_path, regional_prompt_mask_pairs, output_path=os.path.join(save_path, boxConfig.save_name))

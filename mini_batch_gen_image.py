@@ -101,7 +101,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="逐一处理pkl文件并调用batchRun.py生成图片")
     parser.add_argument("--pkl_dir", 
                       type=str, 
-                      default="/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/sampled_captions_512res",
+                      default="/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/data_handle_new/sampled_captions_512res_clear_layout",
                       help=".pkl文件所在的文件夹路径")
     parser.add_argument("--save_root", 
                       type=str, 
