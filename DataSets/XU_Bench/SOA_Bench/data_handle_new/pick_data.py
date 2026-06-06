@@ -28,7 +28,7 @@ def convert_mask(normalized_mask, resolution=512):
     
     return [x1, y1, x2, y2]
 
-def process_files(input_dir, output_dir, sample_size=50):
+def process_files(input_dir, output_dir, sample_size=10):
     """
     处理所有pkl文件，每个文件随机抽取指定数量的数据
     并转换mask格式
@@ -57,8 +57,6 @@ def process_files(input_dir, output_dir, sample_size=50):
             # 随机抽取指定数量的数据
             sampled_data = random.sample(data_list, sample_size)
         
-
-        print(f"处理文件 {filename}，共 {len(sampled_data)} 条数据")
         # 处理每条数据，转换mask格式
         processed_data = []
         for item in sampled_data:
@@ -87,9 +85,9 @@ def process_files(input_dir, output_dir, sample_size=50):
 
 def main():
     # 配置文件路径
-    input_dir = "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/processed_captions_with_layout"
-    output_dir = "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/sampled_captions_512res"  # 新文件夹路径
-    sample_size = 50  # 每个文件抽取的数据条数
+    input_dir = "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/data_handle_new/processed_pkl"
+    output_dir = "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/data_handle_new/sampled_captions_512res"  # 新文件夹路径
+    sample_size = 10  # 每个文件抽取的数据条数
     
     # 处理文件
     process_files(input_dir, output_dir, sample_size)

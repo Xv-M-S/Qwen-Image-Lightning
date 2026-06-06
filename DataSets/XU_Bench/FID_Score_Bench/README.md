@@ -2,10 +2,18 @@
 this is a repo shows how to use coco data and api to caclulate the FID
 
 # download coco data
+下载test数据集
 ``` bash
 modelscope download \
   --dataset OmniData/COCO_2014 \
   --include "raw/val2014.zip" "raw/annotations_trainval2014.zip" \
+  --local_dir ./coco_dataset
+```
+下载train数据集
+``` bash
+modelscope download \
+  --dataset OmniData/COCO_2014 \
+  --include "raw/train2014.zip" \
   --local_dir ./coco_dataset
 ```
 # coco api download

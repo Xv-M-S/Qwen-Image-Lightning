@@ -44,7 +44,7 @@ from detectron2.utils.logger import setup_logger
 from unidet.predictor import UnifiedVisualizationDemo
 from unidet.config import add_unidet_config
 
-
+os.system("unset PYTORCH_CUDA_ALLOC_CONF")
 # constants
 WINDOW_NAME = "Unified detections"
 
@@ -105,6 +105,7 @@ def get_parser():
 
 
 if __name__ == "__main__":
+    os.system("unset PYTORCH_CUDA_ALLOC_CONF")
     mp.set_start_method("spawn", force=True)
     args = get_parser().parse_args()
     setup_logger(name="fvcore")

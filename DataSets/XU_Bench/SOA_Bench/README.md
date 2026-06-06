@@ -122,3 +122,93 @@ TODO : this step need to write a script to run batchRun.py for each floder.
 脚本 batchRun.py 的作用是生成图片，具体使用方法如下：
 python batchRun.py --data_dir /path/to/.pkl --save_path /path/to/save_image,
 请写一个python脚本分批运行batchRun.py生成对应的图片。
+
+``` bash
+nohup python mini_batch_gen_image.py --save_root /home/sxm/flux-workspace/Qwen-Image-Lightning/expData_v2/raw-qwen-image/soaResGI > gen_image_log.txt 2>&1 &
+```
+
+# 将生成的图片移动到一个新的文件夹
+
+TASK: 一个文件夹的结构如下图所示:
+(tifaEnv) sxm@lkshpc:~/flux-workspace/Qwen-Image-Lightning/expData_v2/raw-qwen-image/soaResGI$ tree -L 1
+.
+├── label_00_person
+├── label_01_bicycle
+├── label_02_car
+├── label_03_motorcycle
+├── label_04_plane
+├── label_05_bus
+├── label_06_train
+├── label_07_truck
+├── label_08_boat
+├── label_09_trafficlight
+├── label_10_hydrant
+├── label_11_stopsign
+├── label_12_parkingmeter
+├── label_13_bench
+├── label_14_bird
+├── label_15_cat
+├── label_16_dog
+├── label_17_horse
+├── label_18_sheep
+├── label_19_cow
+├── label_20_elephant
+├── label_21_bear
+├── label_22_zebra
+├── label_23_giraffe
+├── label_24_backpack
+├── label_25_umbrella
+├── label_26_handbag
+写一个python脚本,新建一个新的文件夹,然后将生成的图片(特指文件名称中带有"generated"的图片")移动到这个文件夹下
+
+``` bash
+python /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/mvFile.py --source_dir /path/to/source_dir --new_folder /path/to/target_dir
+
+python /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/mvFile.py --source_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/ground_truth_results --new_folder /path/to/target_dir
+```
+
+# 将groundTruth移动到新的文件夹下
+现在有一些groundtruth数据，格式如下：
+(tifaEnv) sxm@lkshpc:~/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/ground_truth_results$ tree 
+.
+├── label_00_person_ground_truth.pkl
+├── label_01_bicycle_ground_truth.pkl
+├── label_02_car_ground_truth.pkl
+├── label_03_motorcycle_ground_truth.pkl
+├── label_04_plane_ground_truth.pkl
+├── label_05_bus_ground_truth.pkl
+├── label_06_train_ground_truth.pkl
+├── label_07_truck_ground_truth.pkl
+├── label_08_boat_ground_truth.pkl
+├── label_09_trafficlight_ground_truth.pkl
+现在需要将这些groundtruth数据复制一份到对应的文件夹下,文件夹的结构如下,需要将label_00_person_ground_truth.pkl复制一份到label_00_person文件夹下,依次类推:
+.
+├── label_00_person
+├── label_01_bicycle
+├── label_02_car
+├── label_03_motorcycle
+├── label_04_plane
+├── label_05_bus
+├── label_06_train
+├── label_07_truck
+├── label_08_boat
+├── label_09_trafficlight
+├── label_10_hydrant
+├── label_11_stopsign
+``` bash
+python /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/mvBoxFile.py --ground_truth_dir /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/ground_truth_results --target_root_dir /path/to/target_dir
+```
+# 运行评估代码
+
+``` bash
+python calculate_soa.py --images /home/sxm/flux-workspace/Qwen-Image-Lightning/expData_v2/raw-qwen-image/soaResGINAME --output /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/semantic-object-accuracy-for-generative-text-to-image-synthesis/SOA/eval_res --gpu 0 --iou
+
+
+python calculate_soa.py --images /home/sxm/flux-workspace/Qwen-Image-Lightning/expData/soaResGINAME --output /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/semantic-object-accuracy-for-generative-text-to-image-synthesis/SOA/eval_res_contorl --gpu 0 --iou
+```
+
+## 根据 ground truth 可视化生成的图片
+
+``` bash
+python /home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/visualize_detections.py
+```

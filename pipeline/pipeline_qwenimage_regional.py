@@ -359,16 +359,19 @@ class RegionalQwenImageAttnProcessor:
 
         # move regional mask to device
         if base_ratio is not None and 'regional_attention_mask' in joint_attention_kwargs:
-            if self.regional_mask is not None:
-                if  self.regional_mask.device != hidden_states.device:
-                    regional_mask = self.regional_mask.to(hidden_states.device)
-                else:
-                    regional_mask = self.regional_mask
-            else:
-                # regional_mask = self.regional_mask.to(hidden_states.device)
-                # avoid duplicate move to device
-                self.regional_mask = joint_attention_kwargs['regional_attention_mask']
-                regional_mask = self.regional_mask
+            # 此处的存储会导致后续图片生成复用改attention_mask
+            # if self.regional_mask is not None:
+            #     if  self.regional_mask.device != hidden_states.device:
+            #         regional_mask = self.regional_mask.to(hidden_states.device)
+            #     else:
+            #         regional_mask = self.regional_mask
+            # else:
+            #     # regional_mask = self.regional_mask.to(hidden_states.device)
+            #     # avoid duplicate move to device
+            #     self.regional_mask = joint_attention_kwargs['regional_attention_mask']
+            #     regional_mask = self.regional_mask
+            self.regional_mask = joint_attention_kwargs['regional_attention_mask']
+            regional_mask = self.regional_mask
         else:
             regional_mask = None
 
@@ -646,7 +649,229 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
         
         # 从 Python 3.7 开始，dict（字典）保证保持插入顺序。
         return quote_to_token_positions
+
+
+    import re
+
+    def get_token_index_v3(self, prompt, quote_prompt, region_prompts):
+        """
+        修复后的版本，专注于在 prompt 的 token 化表示中查找 region_prompts 中的短语。
+        它不再依赖 find_complete_word_matches 进行短语匹配，而是直接处理 prompt_tokens。
+        """
+        DEBUG = True
+        # 预处理region_prompts
+        if region_prompts is None:
+            return {}
+        # 保留原始描述，不做 "_" 替换，因为我们的数据中没有 "_"
+        quoted_texts = [text.strip() for text in region_prompts]
+
+        # 步骤 1: Tokenize 整个 prompt
+        prompt_tokens = self.tokenizer.tokenize(prompt)
+        prompt_token_ids = self.tokenizer.convert_tokens_to_ids(prompt_tokens)
+
+        if DEBUG:
+            print(f"\n📊 Prompt total tokens: {len(prompt_tokens)}")
+            print("🔤 First 20 prompt tokens:", prompt_tokens[:20])
+
+        # 步骤 2: 初始化结果字典
+        quote_to_token_positions = {}
+
+        for idx, original_quote_text in enumerate(quoted_texts):
+            original_quote_text_lower = original_quote_text.lower()
+            
+            if DEBUG:
+                print(f"\n--- Processing Quote [{idx}]: '{original_quote_text}' ---")
+
+            # --- 策略：直接在 prompt_tokens 中查找 original_quote_text ---
+            # 1. Tokenize the target phrase
+            phrase_tokens = self.tokenizer.tokenize(original_quote_text)
+            phrase_token_ids = self.tokenizer.convert_tokens_to_ids(phrase_tokens)
+            
+            if DEBUG:
+                print(f"  🔄 Tokenizing phrase: '{original_quote_text}' -> {phrase_tokens}")
+                print(f"  🔄 Phrase token IDs: {phrase_token_ids}")
+
+            # 2. 在 prompt_token_ids 中查找这个 phrase_token_ids 的序列
+            # 使用辅助函数查找子列表
+            pos_list = self._find_sublist_indices(phrase_token_ids, prompt_token_ids)
+            
+            if pos_list:
+                # 找到了完整的短语匹配
+                quote_to_token_positions[original_quote_text] = pos_list
+                if DEBUG:
+                    print(f"  ✅ Found exact phrase match. Positions: {pos_list}")
+                    # 验证重建的文本
+                    reconstructed_text = self.tokenizer.decode([prompt_token_ids[i] for i in pos_list])
+                    print(f"  🔁 Reconstructed from tokens: '{reconstructed_text}'")
+            else:
+                # 3. 如果找不到完整短语，尝试宽松匹配（处理不定冠词等）
+                # 首先检查原始短语是否在 prompt 中（用于调试）
+                if original_quote_text_lower in prompt.lower():
+                    # 确保找到的是完整单词（使用正则表达式）
+                    # 注意：这里的匹配仍然是基于字符的，但我们接下来会尝试 token 化
+                    import re
+                    # 使用 \b 作为单词边界，但需要小心处理包含特殊字符的短语
+                    escaped_phrase = re.escape(original_quote_text_lower)
+                    # 如果短语包含引号等，\b 可能不适用，我们稍后再处理这种情况
+                    
+                    # 先尝试一种更直接的方法：允许短语前后是单词边界（或引号、空格等）
+                    # pattern = r'\b' + escaped_phrase + r'\b'
+                    # 更宽松的模式，匹配短语本身及其周围环境
+                    # 使用 (?=\b|\s|") 来表示单词边界或空格或引号
+                    # 使用 (?<=\b|\s|") 来表示前面也是单词边界或空格或引号
+                    # pattern = rf"(?<=\b|\s|'){escaped_phrase}(?=\b|\s|')"
+                    # 这种方法依然难以完美解决 tokenizer 的问题
+                    
+                    # 最稳健的方法：尝试移除不定冠词后再次查找
+                    text_lower = original_quote_text_lower
+                    modified_phrase = original_quote_text
+                    starts_with_a = False
+                    starts_with_an = False
+                    if text_lower.startswith("a "):
+                        modified_phrase = original_quote_text[2:].strip()
+                        starts_with_a = True
+                    elif text_lower.startswith("an "):
+                        modified_phrase = original_quote_text[3:].strip()
+                        starts_with_an = True
+                    
+                    if starts_with_a or starts_with_an:
+                        if DEBUG:
+                            print(f"  ℹ️  Original phrase '{original_quote_text}' starts with 'a'/'an'. Trying modified: '{modified_phrase}'")
+                        
+                        # Tokenize the modified phrase
+                        modified_phrase_tokens = self.tokenizer.tokenize(modified_phrase)
+                        modified_phrase_token_ids = self.tokenizer.convert_tokens_to_ids(modified_phrase_tokens)
+                        
+                        if DEBUG:
+                            print(f"  🔄 Tokenizing modified phrase: '{modified_phrase}' -> {modified_phrase_tokens}")
+                            print(f"  🔄 Modified phrase token IDs: {modified_phrase_token_ids}")
+
+                        # 在 prompt_token_ids 中查找修改后的序列
+                        modified_pos_list = self._find_sublist_indices(modified_phrase_token_ids, prompt_token_ids)
+                        
+                        if modified_pos_list:
+                            quote_to_token_positions[original_quote_text] = modified_pos_list
+                            if DEBUG:
+                                print(f"  ✅ Found modified phrase match (removed 'a'/'an'). Positions: {modified_pos_list}")
+                                reconstructed_text = self.tokenizer.decode([prompt_token_ids[i] for i in modified_pos_list])
+                                print(f"  🔁 Reconstructed from tokens: '{reconstructed_text}'")
+                            continue # 成功匹配，继续下一个
+                
+                # 4. 如果以上都不行，尝试在 prompt 中查找原始短语（非 token 化）
+                # 并获取其字符位置，然后转换为 token 位置
+                import re
+                # pattern = r'\b' + re.escape(original_quote_text_lower) + r'\b'
+                # 更适合处理可能包含引号的短语
+                # pattern = r'(?<!\w)' + re.escape(original_quote_text_lower) + r'(?!\w)'
+                # 直接搜索，因为我们的 prompt 中很多短语是用引号括起来的
+                pattern = re.escape(original_quote_text_lower)
+                match = re.search(pattern, prompt.lower())
+                
+                if match:
+                    char_start = match.start()
+                    char_end = match.end()
+                    
+                    if DEBUG:
+                        print(f"  ℹ️  Found character-based match: '{prompt[char_start:char_end]}' at char pos {char_start}-{char_end}")
+                    
+                    # 将字符位置转换为 token 位置
+                    # 这需要知道每个 token 在原字符串中的字符范围
+                    # tokenizer 通常有 offsets_mapping 或类似功能，但这里我们用一种近似方法
+                    # 计算 prompt[:char_start] 和 prompt[:char_end] 的 tokens
+                    
+                    # 获取从开头到匹配开始前的 tokens
+                    prefix_tokens = self.tokenizer.tokenize(prompt[:char_start])
+                    prefix_token_count = len(prefix_tokens)
+                    
+                    # 获取从开头到匹配结束的 tokens
+                    full_prefix_tokens = self.tokenizer.tokenize(prompt[:char_end])
+                    full_prefix_token_count = len(full_prefix_tokens)
+                    
+                    # 匹配部分的 token 范围就是 [prefix_token_count, full_prefix_token_count)
+                    token_start = prefix_token_count
+                    token_end = full_prefix_token_count
+                    
+                    if token_start < len(prompt_tokens) and token_end <= len(prompt_tokens):
+                        token_range = list(range(token_start, token_end))
+                        quote_to_token_positions[original_quote_text] = token_range
+                        if DEBUG:
+                            print(f"  ✅ Found character-based match, converted to token positions: {token_range}")
+                            reconstructed_text = self.tokenizer.decode([prompt_token_ids[i] for i in token_range])
+                            print(f"  🔁 Reconstructed from tokens: '{reconstructed_text}'")
+                    else:
+                        if DEBUG:
+                            print(f"  ❌ Character-to-token conversion failed due to out-of-bounds indices.")
+                else:
+                    # 5. 如果 prompt 中也没有找到原始短语，则认为是“计数”场景
+                    if DEBUG:
+                        print(f"  ℹ️  '{original_quote_text}' not found in prompt, treating as 'counting' scenario.")
+
+                    # 将短语tokenize
+                    individual_tokens = self.tokenizer.tokenize(original_quote_text)
+                    individual_token_ids = self.tokenizer.convert_tokens_to_ids(individual_tokens)
+                    
+                    if DEBUG:
+                        print(f"  🔄 Tokenizing for counting: {individual_tokens}")
+                        print(f"  🔄 Individual token IDs: {individual_token_ids}")
+
+                    # 查找每个独立token在prompt中的所有位置
+                    all_pos_lists = []
+                    for token_id in individual_token_ids:
+                        try:
+                            indices = [i for i, x in enumerate(prompt_token_ids) if x == token_id]
+                            if indices:
+                                all_pos_lists.append(indices[0]) # 取第一个匹配位置
+                            else:
+                                if DEBUG:
+                                    print(f"    ❌ Could not find token ID {token_id} ('{self.tokenizer.decode([token_id])}') in prompt.")
+                        except Exception as e:
+                            if DEBUG:
+                                print(f"    ❌ Error finding token ID {token_id}: {e}")
+                    
+                    # 检查是否所有token都找到了
+                    if len(all_pos_lists) == len(individual_token_ids):
+                        quote_to_token_positions[original_quote_text] = all_pos_lists
+                        if DEBUG:
+                            print(f"  ✅ Counting scenario successful. Positions: {all_pos_lists}")
+                    else:
+                        # 计数场景失败，记录为空列表
+                        quote_to_token_positions[original_quote_text] = []
+                        if DEBUG:
+                            print(f"  ❌ Counting scenario failed for '{original_quote_text}', no positions found.")
+
+
+        # ======================
+        # 6. 最终结果打印
+        # ======================
+        if DEBUG:
+            print("\n" + "="*60)
+            print("✅ Final token positions for each quote:")
+            print("="*60)
+            for quote, positions in quote_to_token_positions.items():
+                print(f"""
+        Quote Text: "{quote}"
+        Token Positions: {positions}
+        Length: {len(positions)} tokens
+        """)
         
+        return quote_to_token_positions
+
+
+    def _find_sublist_indices(self, sublist, main_list):
+        """
+        Helper function to find the starting and ending indices of a sublist within a main list.
+        Returns a list of indices corresponding to the occurrences of the sublist.
+        Returns the first occurrence's full index range.
+        """
+        if not sublist:
+            return []
+        indices = []
+        sublist_len = len(sublist)
+        for i in range(len(main_list) - sublist_len + 1):
+            if main_list[i:i + sublist_len] == sublist:
+                indices.extend(range(i, i + sublist_len))
+                break # Return only the first occurrence's range
+        return indices
     
     def aggregate_attention(
                         self,
@@ -1219,7 +1444,8 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
 
         # get quote prompt token index
         if isinstance(base_prompt, str):
-            quote_to_token_positions = self.get_token_index_v2(base_prompt, quote_prompt=True, region_prompts = attention_kwargs.get("regional_prompts", None)[:-1])
+            quote_to_token_positions = self.get_token_index_v3(base_prompt, quote_prompt=True, region_prompts = attention_kwargs.get("regional_prompts", None))
+            print("🔗 引号内容:", base_prompt)
             print("🔗 引号内容对应的 token 位置:", quote_to_token_positions)
         else:
             quote_to_token_positions = None
@@ -2037,9 +2263,16 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
         self._width = width
 
         # get quote prompt token index
-        if isinstance(base_prompt, str) and '"' in base_prompt:
-            quote_to_token_positions = self.get_token_index_v2(base_prompt, quote_prompt=True, region_prompts = attention_kwargs.get("regional_prompts", None)[:-1])
-            # print("🔗 引号内容对应的 token 位置:", quote_to_token_positions)
+        # if isinstance(base_prompt, str) and '"' in base_prompt:
+        #     quote_to_token_positions = self.get_token_index_v2(base_prompt, quote_prompt=True, region_prompts = attention_kwargs.get("regional_prompts", None)[:-1])
+        #     # print("🔗 引号内容对应的 token 位置:", quote_to_token_positions)
+        # else:
+        #     quote_to_token_positions = None
+
+
+        if isinstance(base_prompt, str):
+            quote_to_token_positions = self.get_token_index_v3(base_prompt, quote_prompt=True, region_prompts = attention_kwargs.get("regional_prompts", None))
+            print("🔗 引号内容对应的 token 位置:", quote_to_token_positions)
         else:
             quote_to_token_positions = None
 
@@ -2234,11 +2467,13 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
 
         # add some args for visualization
         boxConfig.text_index = quote_to_token_positions
+        print("🔗 引号内容对应的 token 位置:", quote_to_token_positions)
         boxConfig.bbox = attention_kwargs.get("regional_boxes")
 
         # LossUtil 初始化
-        loss_names = boxConfig.text_index.keys()
-        loss_util = LossUtil(loss_names, total_weight=boxConfig.total_weight)
+        if boxConfig.text_index is not None:
+            loss_names = boxConfig.text_index.keys()
+            loss_util = LossUtil(loss_names, total_weight=boxConfig.total_weight)
 
 
         # 6. Denoising loop
@@ -2738,10 +2973,12 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
 
         # add some args for visualization
         boxConfig.text_index = quote_to_token_positions
+        print(quote_to_token_positions)
         boxConfig.bbox = attention_kwargs.get("regional_boxes")
 
         # LossUtil 初始化
-        loss_names = boxConfig.text_index.keys()
+        if boxConfig.text_index is not None:
+            loss_names = boxConfig.text_index.keys()
         loss_util = LossUtil(loss_names, total_weight=boxConfig.total_weight)
 
 

@@ -35,3 +35,8 @@ model_ts*.txt
 /DataSets/XU_Bench/FID_Score_Bench/cocoapi/coco_dataset
 /DataSets/XU_Bench/FID_Score_Bench/real_images
 /DataSets/HRS_Bench_Prompts/embs
+/DataSets/data_evaluate_LLM/eval_metrics/detection/cuda_11.3.1_465.19.01_linux.run
+/DataSets/data_evaluate_LLM/eval_metrics/detection/cuda_13.0.1_580.82.07_linux.run
+Qwen-Image-Lightning/
+Qwen-Image-Lightning_v2/
+expData/

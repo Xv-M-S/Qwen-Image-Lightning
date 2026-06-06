@@ -154,12 +154,20 @@ def cal_acc(gt_objs, pred_objs, global_id_map):
     level_3_count = 0
 
     for img_id, sample in enumerate(gt_objs):
+        # print(f"prompt: {sample['prompt']} | img_id: {img_id}")
         # 校验是否存在
         prompt = sample['prompt']
+
+        # if prompt in global_id_map:
+        #     print(f"Found img_id: {global_id_map[prompt]} for prompt.")
+
         if prompt not in global_id_map:
             continue
             
         img_id = global_id_map[prompt]
+
+        # print(f"pred_objs: {pred_objs.keys()}")
+
         if img_id not in pred_objs:
             continue
 

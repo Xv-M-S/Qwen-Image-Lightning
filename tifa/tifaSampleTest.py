@@ -1,8 +1,14 @@
 from tifascore import tifa_score_benchmark
 import json
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--json_path", type=str, default="mplug-large")
+args = parser.parse_args()
+json_path = args.json_path
 
 # We recommend using mplug-large
-results = tifa_score_benchmark("mplug-large", "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/Tifa_Bench/tifa_v1.0/tifa_v1.0_question_answers.json", "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/tifaResGINAME/image_id_mapping.json")
+results = tifa_score_benchmark("mplug-large", "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/Tifa_Bench/tifa_v1.0/tifa_v1.0_question_answers.json", json_path)
 
 # save the results
 with open("/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/Tifa_Bench/tifa1_evaluation_result_regentest.json", "w") as f:

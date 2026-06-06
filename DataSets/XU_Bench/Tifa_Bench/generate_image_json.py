@@ -36,10 +36,16 @@ def generate_image_id_json(folder_path, output_json_path):
 
 if __name__ == "__main__":
     # 图片文件夹路径
-    image_folder = "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/tifaResGINAME"
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--image_folder", type=str, default="/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/tifaResGINAME")
+    args = parser.parse_args()
+    
+    image_folder = args.image_folder
     
     # 输出JSON文件路径（可根据需要修改）
-    output_json = "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/tifaResGINAME/image_id_mapping.json"
+    # output_json = "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData/tifaResGINAME/image_id_mapping.json"
+    output_json = os.path.join(image_folder, "image_id_mapping.json")
     
     # 生成JSON文件
     generate_image_id_json(image_folder, output_json)

@@ -32,13 +32,21 @@ def generate_mappings(input_dir, output_dir):
             
             # 处理image_id到caption的映射
             # 如果一个image_id对应多个caption，只保留第一个
-            if image_id not in image_id_to_caption:
-                image_id_to_caption[image_id] = caption
-            
+
+             
             # 处理caption到image_id的映射
             # 如果一个caption对应多个image_id，只保留第一个
-            if caption not in caption_to_image_id:
-                caption_to_image_id[caption] = str(image_id)
+            if image_id in image_id_to_caption or caption in caption_to_image_id:
+                if image_id in image_id_to_caption:
+                    print(f"警告: 跳过重复的image_id '{image_id}' 对应的caption '{caption[:50]}...'")
+                if caption in caption_to_image_id:
+                    print(f"警告: 跳过重复的caption '{caption[:50]}...' 对应的image_id '{image_id}'")
+                continue
+        
+           
+            image_id_to_caption[image_id] = caption
+            caption_to_image_id[caption] = str(image_id)
+    
     
     # 定义输出文件路径
     img_id_to_caption_path = os.path.join(output_dir, "image_id_to_caption.json")

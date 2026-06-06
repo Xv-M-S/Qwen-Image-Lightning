@@ -13,6 +13,20 @@
             "justMyCode": false
         },
         {
+            "name": "SampleImage调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/sampleCaseGen.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            // 允许调试第三方库
+            "justMyCode": false,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3"  // 指定使用第4块GPU（索引从0开始）
+            },
+        },
+        {
             "name": "batch-Run调试",
             "type": "debugpy",
             "request": "launch",
@@ -162,6 +176,41 @@
             "env": {
                 "PYTORCH_CUDA_ALLOC_CONF": null
             },
+            "justMyCode": false
+        },
+        {
+            "name": "calculate_soa调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/semantic-object-accuracy-for-generative-text-to-image-synthesis/SOA/calculate_soa.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/semantic-object-accuracy-for-generative-text-to-image-synthesis/SOA",
+            "python": "/home/sxm/anaconda3/envs/tifaEnv/bin/python3",
+            "args": [
+                "--images",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/expData_v2/raw-qwen-image/soaResGINAME",
+                "--output",
+                "/home/sxm/flux-workspace/Qwen-Image-Lightning/DataSets/XU_Bench/SOA_Bench/semantic-object-accuracy-for-generative-text-to-image-synthesis/SOA/eval_res",
+                "--gpu",
+                "0",
+                "--iou"
+            ],
+            "env": {
+                "PYTORCH_CUDA_ALLOC_CONF": null
+            },
+            "justMyCode": false
+        }, {
+            "name": "batch-Run调试版本2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/home/sxm/flux-workspace/Qwen-Image-Lightning/batchGoodCode.py",
+            "console": "integratedTerminal",
+            "cwd": "/home/sxm/flux-workspace/Qwen-Image-Lightning",
+            "python": "/home/sxm/anaconda3/envs/qwenImageLightEnv/bin/python3",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3"  // 指定使用第4块GPU（索引从0开始）
+            },
+            // 允许调试第三方库
             "justMyCode": false
         }
 

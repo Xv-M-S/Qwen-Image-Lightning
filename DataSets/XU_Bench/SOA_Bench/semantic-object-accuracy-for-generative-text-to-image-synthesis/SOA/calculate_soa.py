@@ -113,7 +113,11 @@ def run_yolo(args):
             transforms.ToTensor(),
             transforms.Normalize((0., 0., 0.), (1, 1, 1))])
         dataset = YoloDataset(full_dir, transform=image_transform)
-        assert dataset
+        # print(f'full_dir: {full_dir}')
+        # assert dataset
+        if len(dataset) == 0:
+            print("No images found in {}".format(full_dir))
+            continue
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
                                                  drop_last=False, shuffle=False, num_workers=4)
 
@@ -176,6 +180,8 @@ def calc_iou(predicted_bbox, gt_bbox, label):
     """Calculate max IoU between correctly detected objects and provided ground truths for each image"""
     ious = []
 
+    # print("gt_bbox keys{}".format(gt_bbox.keys()))
+
     # iterate over the predictions for all images
     for key in predicted_bbox.keys():
         predicted_bboxes = []
@@ -189,7 +195,19 @@ def calc_iou(predicted_bbox, gt_bbox, label):
 
         gt_bboxes = []
         # get the ground truth information of the current image
-        gts = gt_bbox[key]
+        key = key.split("_")[0] + "." + key.split(".")[-1]  # to match the keys in the ground truth file
+        found = False
+        for item in gt_bbox:
+            for k,v in item.items():
+                if k == key:
+                    gts = v
+                    found = True
+
+        
+        if not found:
+            # print("No ground truth information for {}".format(key))
+            continue
+        # gts = gt_bbox[key]
 
         if gts[1] is None or len(gts[1]) == 0:
             continue
@@ -200,7 +218,8 @@ def calc_iou(predicted_bbox, gt_bbox, label):
             assert type(gts[1]) is list and type(gts[2]) is list,\
                    "Expected lists as entries of the ground truth bounding box file"
             for real_label, real_bbox in zip(gts[1], gts[2]):
-                if real_label == label:
+                # if real_label - 1 == label or True:
+                if real_label - 1 == label:
                     assert all([_val >= 0 and _val <= 1 for _val in real_bbox]), \
                         "Bounding box entries should be between 0 and 1 but are: {}.".format(real_bbox)
                     gt_bboxes.append(real_bbox)
