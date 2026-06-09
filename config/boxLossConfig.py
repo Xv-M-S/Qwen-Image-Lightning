@@ -96,4 +96,31 @@ class RunConfig:
     lossType = "rnb"
     # lossType = "opt"
 
+    # ============================================================
+    # NQE-EAA: Noise Quality Evaluation via Early Attention Alignment
+    # 基于早期注意力对齐的噪声质量评估
+    # ============================================================
+    use_nqe_eaa: bool = False          # Enable NQE-EAA noise filtering
+    nqe_eaa_candidates: int = 10       # K: number of candidate noise samples
+    nqe_eaa_alpha: float = 0.5         # α: balance between txt→img and img→txt attention
+
+    # ============================================================
+    # Dynamic Soft Masking Strategy (动态软掩码策略)
+    # ============================================================
+    use_dynamic_mask: bool = False     # Enable dynamic soft masking (replaces hard bool masks)
+
+    # txt→img cross-attention: M[t,p] = γ * m_i(p) + (1-γ) * s(t, t_base)
+    dynamic_mask_gamma: float = 0.7    # Spatial belonging weight
+
+    # img→txt cross-attention: M[p,t] = λ * I(t∈I_i) + (1-λ) * s(p, t)
+    dynamic_mask_lambda: float = 0.7   # Region indicator weight
+
+    # txt self-attention: same region = 1, cross region = δ * sim(t_a, t_b)
+    dynamic_mask_delta: float = 0.3    # Cross-region text attention attenuation
+
+    # img self-attention: min(1, μ * Σ m_i(p)m_i(q) + η * κ(p,q))
+    dynamic_mask_mu: float = 1.5       # Intra-region aggregation weight
+    dynamic_mask_eta: float = 0.3      # Local spatial smoothing weight
+    dynamic_mask_gaussian_sigma: float = 2.0  # Sigma for spatial Gaussian kernel
+
 boxConfig = RunConfig()

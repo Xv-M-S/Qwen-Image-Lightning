@@ -20,6 +20,8 @@ from pipeline.rnbLoss import compute_rnb_loss
 from util.latent_search import histogram_matching, process_matrix_with_noise
 from pipeline.LossUtil import LossUtil
 from pipeline.optimizeLoss import compute_opt_loss
+from pipeline.noise_filtering import compute_nqe_eaa_scores, select_best_noise
+from pipeline.dynamic_mask import DynamicMaskBuilder
 import random
 import re
 from difflib import SequenceMatcher
@@ -80,6 +82,8 @@ class RegionalQwenImageAttnProcessor:
     """
     Attention processor for Qwen double-stream architecture, matching DoubleStreamLayerMegatron logic. This processor
     implements joint attention computation where text and image streams are processed together.
+
+    Supports both hard (bool) regional attention masks and dynamic soft masks (when boxConfig.use_dynamic_mask=True).
     """
 
     _attention_backend = None
@@ -87,6 +91,10 @@ class RegionalQwenImageAttnProcessor:
     def __init__(self, attnstore= None):
         self.regional_mask = None
         self.attnstore = attnstore
+        # Dynamic soft mask cache
+        self._dynamic_mask_builder = None
+        self._cached_soft_mask = None
+        self._cached_encoder_hidden_states_key = None
         if not hasattr(F, "scaled_dot_product_attention"):
             raise ImportError(
                 "QwenDoubleStreamAttnProcessor2_0 requires PyTorch 2.0, to use it, please upgrade PyTorch to 2.0."
@@ -331,12 +339,56 @@ class RegionalQwenImageAttnProcessor:
         return img_attn_output, txt_attn_output
           
 
+    def _build_dynamic_soft_mask(
+        self,
+        hidden_states: torch.FloatTensor,
+        encoder_hidden_states: torch.FloatTensor,
+        joint_attention_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Optional[torch.Tensor]:
+        """
+        Build dynamic soft mask from current hidden_states and encoder_hidden_states.
+
+        Uses the DynamicMaskBuilder that was cached during pipeline setup.
+        Converts the soft mask to log-space for additive application in attention.
+        """
+        if not boxConfig.use_dynamic_mask:
+            return None
+        if self._dynamic_mask_builder is None:
+            return None
+
+        builder = self._dynamic_mask_builder
+
+        # Build full soft mask from current features
+        soft_mask = builder.build_full_mask(
+            hidden_states=hidden_states,
+            encoder_hidden_states=encoder_hidden_states,
+            gamma=boxConfig.dynamic_mask_gamma,
+            lambda_coeff=boxConfig.dynamic_mask_lambda,
+            delta=boxConfig.dynamic_mask_delta,
+            mu=boxConfig.dynamic_mask_mu,
+            eta=boxConfig.dynamic_mask_eta,
+            gaussian_sigma=boxConfig.dynamic_mask_gaussian_sigma,
+        )
+
+        # Convert to log-space for additive mask: attn_scores + log(M + ε)
+        log_mask = DynamicMaskBuilder.apply_soft_mask_to_attention(
+            attn_scores=torch.zeros_like(soft_mask),
+            soft_mask=soft_mask,
+        ) - 0.0  # Remove identity for clarity: log_mask = log(M + ε)
+
+        # Actually let's compute it directly:
+        eps = 1e-8
+        safe_mask = torch.clamp(soft_mask, min=eps)
+        log_mask = torch.log(safe_mask)
+
+        return log_mask
+
     def __call__(
         self,
         attn: Attention,
         hidden_states: torch.FloatTensor,  # Image stream
         encoder_hidden_states: torch.FloatTensor = None,  # Text stream
-        encoder_hidden_states_mask: torch.FloatTensor = None, 
+        encoder_hidden_states_mask: torch.FloatTensor = None,
         encoder_hidden_states_base: torch.FloatTensor = None, # added
         encoder_hidden_states_base_mask: torch.FloatTensor = None, # added
         base_ratio: float = None,
@@ -357,19 +409,18 @@ class RegionalQwenImageAttnProcessor:
                 index_block = index_block
             )
 
-        # move regional mask to device
-        if base_ratio is not None and 'regional_attention_mask' in joint_attention_kwargs:
-            # 此处的存储会导致后续图片生成复用改attention_mask
-            # if self.regional_mask is not None:
-            #     if  self.regional_mask.device != hidden_states.device:
-            #         regional_mask = self.regional_mask.to(hidden_states.device)
-            #     else:
-            #         regional_mask = self.regional_mask
-            # else:
-            #     # regional_mask = self.regional_mask.to(hidden_states.device)
-            #     # avoid duplicate move to device
-            #     self.regional_mask = joint_attention_kwargs['regional_attention_mask']
-            #     regional_mask = self.regional_mask
+        # Build attention mask (hard bool or dynamic soft)
+        if boxConfig.use_dynamic_mask and base_ratio is not None:
+            # Dynamic soft masking: build mask from current features
+            regional_mask = self._build_dynamic_soft_mask(
+                hidden_states=hidden_states,
+                encoder_hidden_states=encoder_hidden_states,
+                joint_attention_kwargs=joint_attention_kwargs,
+            )
+            if regional_mask is not None:
+                regional_mask = regional_mask.to(hidden_states.device).to(hidden_states.dtype)
+        elif base_ratio is not None and joint_attention_kwargs is not None and 'regional_attention_mask' in joint_attention_kwargs:
+            # Hard bool mask (original behavior)
             self.regional_mask = joint_attention_kwargs['regional_attention_mask']
             regional_mask = self.regional_mask
         else:
@@ -1304,6 +1355,63 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
                 if layer_index in train_transform_layer:
                     param.requires_grad = True
 
+    def _setup_dynamic_masking(
+        self,
+        hidden_seq_len: int,
+        regional_embeds: torch.Tensor,
+        masks: List[torch.Tensor],
+        each_prompt_seq_len: List[int],
+        H_z: int,
+        W_z: int,
+    ):
+        """
+        Initialize DynamicMaskBuilder and store it in all attention processors.
+        This allows each attention layer to build soft masks from current features.
+
+        Args:
+            hidden_seq_len: L — number of image patch tokens
+            regional_embeds: Concatenated regional text embeddings [1, M, d]
+            masks: List of per-region spatial masks [L, seq_len_i]
+            each_prompt_seq_len: Text sequence length per region
+            H_z: Latent height in patches
+            W_z: Latent width in patches
+        """
+        if not boxConfig.use_dynamic_mask:
+            return
+
+        encoder_seq_len = regional_embeds.shape[1]
+
+        # Convert regional boxes from pixel to latent space
+        regional_boxes_latent = []
+        if hasattr(self, '_attention_kwargs') and self._attention_kwargs is not None:
+            regional_boxes_pixel = self._attention_kwargs.get("regional_boxes", [])
+            scale_factor = self.vae_scale_factor * 2
+            for bbox in regional_boxes_pixel:
+                x1, y1, x2, y2 = bbox
+                regional_boxes_latent.append([
+                    max(round(x1 / scale_factor), 0),
+                    max(round(y1 / scale_factor), 0),
+                    min(round(x2 / scale_factor), W_z),
+                    min(round(y2 / scale_factor), H_z),
+                ])
+
+        builder = DynamicMaskBuilder(
+            hidden_seq_len=hidden_seq_len,
+            encoder_seq_len=encoder_seq_len,
+            regional_masks=masks,
+            each_prompt_seq_len=each_prompt_seq_len,
+            regional_boxes=regional_boxes_latent if regional_boxes_latent else [[0, 0, W_z, H_z]],
+            H_z=H_z,
+            W_z=W_z,
+        )
+
+        # Store builder in all attention processors
+        for name, module in self.transformer.named_modules():
+            if hasattr(module, 'processor'):
+                processor = module.get_processor()
+                if isinstance(processor, RegionalQwenImageAttnProcessor):
+                    processor._dynamic_mask_builder = builder
+
 
 
 
@@ -1576,6 +1684,16 @@ class RegionalQwenImagePipeline(QwenImagePipeline):
 
         regional_attention_mask[encoder_seq_len:, encoder_seq_len:] = background_and_self_attend_masks
         ## added : done prepare masks for regional control
+
+        # Setup dynamic soft masking if enabled (for __call__)
+        self._setup_dynamic_masking(
+            hidden_seq_len=hidden_seq_len,
+            regional_embeds=regional_embeds,
+            masks=masks,
+            each_prompt_seq_len=each_prompt_seq_len,
+            H_z=H,
+            W_z=W,
+        )
 
 
         # 4. Prepare latent variables
